@@ -57,45 +57,41 @@
         <f:textarea />
     </f:entry>
     
-    <f:section title="Advanced">
-        <f:advanced>
-            <f:block>
-                <div style="margin: 10px 0; padding: 10px; border-left: 3px solid #4a90e2; border-radius: 3px; background-color: rgba(74, 144, 226, 0.1);">
-                    <strong>Note:</strong> In most cases the plugin will automatically detect and send SCM fields, but you can manually set these if needed.
-                </div>
-            </f:block>
-            
-            <f:entry title="SCM Host Type" field="vcHostType">
-                <f:textbox default="git" />
-            </f:entry>
-            
-            <f:entry title="SCM Host" field="vcHost">
-                <f:textbox default="github" />
-            </f:entry>
-            
-            <f:entry title="SCM Repo Name" field="vcRepoName">
-                <f:textbox />
-            </f:entry>
-            
-            <f:entry title="SCM Repo URL" field="vcRepoUrl">
-                <f:textbox />
-            </f:entry>
-            
-            <f:entry title="SCM Branch" field="vcBranch">
-                <f:textbox />
-            </f:entry>
-            
-            <f:entry title="SCM Commit SHA" field="vcCommitSha">
-                <f:textbox />
-            </f:entry>
-            
-            <f:entry title="SCM Commit URL" field="vcCommitUrl">
-                <f:textbox />
-            </f:entry>
-            
-            <f:entry title="Notes" field="notes" description="Optional notes to attach to this build">
-                <f:textarea />
-            </f:entry>
-        </f:advanced>
-    </f:section>
+    <f:advanced>
+        <div class="jenkins-alert jenkins-alert-info">
+            <strong>Note:</strong> In most cases the plugin will automatically detect and send SCM fields, but you can manually set these if needed.
+        </div>
+
+        <f:entry title="SCM Host Type" field="vcHostType">
+            <f:textbox default="git" />
+        </f:entry>
+
+        <f:entry title="SCM Host" field="vcHost">
+            <f:textbox default="github" />
+        </f:entry>
+
+        <f:entry title="SCM Repo Name" field="vcRepoName">
+            <f:textbox />
+        </f:entry>
+
+        <f:entry title="SCM Repo URL" field="vcRepoUrl">
+            <f:textbox />
+        </f:entry>
+
+        <f:entry title="SCM Branch" field="vcBranch">
+            <f:textbox />
+        </f:entry>
+
+        <f:entry title="SCM Commit SHA" field="vcCommitSha">
+            <f:textbox />
+        </f:entry>
+
+        <f:entry title="SCM Commit URL" field="vcCommitUrl">
+            <f:textbox />
+        </f:entry>
+
+        <f:entry title="Notes" field="notes" description="Optional notes to attach to this build">
+            <f:textarea />
+        </f:entry>
+    </f:advanced>
 </j:jelly> 
