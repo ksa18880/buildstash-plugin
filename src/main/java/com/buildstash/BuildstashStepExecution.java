@@ -4,6 +4,7 @@ import hudson.EnvVars;
 import hudson.FilePath;
 import hudson.model.Run;
 import hudson.model.TaskListener;
+import hudson.util.Secret;
 import jenkins.model.Jenkins;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.SynchronousNonBlockingStepExecution;
@@ -53,7 +54,9 @@ public class BuildstashStepExecution extends SynchronousNonBlockingStepExecution
         }
         
         // Expand environment variables in all fields
-        String expandedApiKey = expand(env, step.getApiKey());
+        Secret apiKeySecret = step.getApiKey();
+        String apiKeyPlain = apiKeySecret != null ? Secret.toString(apiKeySecret) : null;
+        String expandedApiKey = expand(env, apiKeyPlain);
         String expandedStructure = expand(env, step.getStructure());
         // Ensure structure defaults to "file" if not set
         if (expandedStructure == null || expandedStructure.isBlank()) {

@@ -1,6 +1,7 @@
 package com.buildstash;
 
 import hudson.model.FreeStyleProject;
+import hudson.util.Secret;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -18,7 +19,7 @@ public class BuildstashBuilderTest {
     @Test
     public void testBuilderCreation() {
         BuildstashBuilder builder = new BuildstashBuilder();
-        builder.setApiKey("test-key");
+        builder.setApiKey(Secret.fromString("test-key"));
         builder.setPrimaryFilePath("test.apk");
         builder.setVersionComponent1Major("1");
         builder.setVersionComponent2Minor("0");
@@ -26,7 +27,7 @@ public class BuildstashBuilderTest {
         builder.setPlatform("android");
         builder.setStream("default");
         
-        assertEquals("test-key", builder.getApiKey());
+        assertEquals("test-key", Secret.toString(builder.getApiKey()));
         assertEquals("test.apk", builder.getPrimaryFilePath());
         assertEquals("1", builder.getVersionComponent1Major());
         assertEquals("0", builder.getVersionComponent2Minor());

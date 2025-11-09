@@ -1,5 +1,6 @@
 package com.buildstash;
 
+import hudson.util.Secret;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -18,7 +19,7 @@ public class BuildstashStepTest {
     @Test
     public void testStepCreation() {
         BuildstashStep step = new BuildstashStep();
-        step.setApiKey("test-key");
+        step.setApiKey(Secret.fromString("test-key"));
         step.setPrimaryFilePath("test.apk");
         step.setVersionComponent1Major("1");
         step.setVersionComponent2Minor("0");
@@ -26,7 +27,7 @@ public class BuildstashStepTest {
         step.setPlatform("android");
         step.setStream("default");
         
-        assertEquals("test-key", step.getApiKey());
+        assertEquals("test-key", Secret.toString(step.getApiKey()));
         assertEquals("test.apk", step.getPrimaryFilePath());
         assertEquals("1", step.getVersionComponent1Major());
         assertEquals("0", step.getVersionComponent2Minor());

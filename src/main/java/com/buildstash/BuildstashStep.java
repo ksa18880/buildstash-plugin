@@ -3,6 +3,7 @@ package com.buildstash;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.model.TaskListener;
+import hudson.util.Secret;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
@@ -22,7 +23,7 @@ public class BuildstashStep extends Step implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private String apiKey;
+    private Secret apiKey;
     private String structure = "file";
     private String primaryFilePath;
     private String expansionFilePath;
@@ -56,10 +57,10 @@ public class BuildstashStep extends Step implements Serializable {
     }
 
     // Getters and Setters
-    public String getApiKey() { return apiKey; }
+    public Secret getApiKey() { return apiKey; }
     
     @DataBoundSetter
-    public void setApiKey(String apiKey) { this.apiKey = apiKey; }
+    public void setApiKey(Secret apiKey) { this.apiKey = apiKey; }
 
     public String getStructure() { return structure; }
     

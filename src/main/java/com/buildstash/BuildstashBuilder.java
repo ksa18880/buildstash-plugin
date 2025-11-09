@@ -9,6 +9,7 @@ import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Publisher;
+import hudson.util.Secret;
 import jenkins.model.Jenkins;
 import jenkins.tasks.SimpleBuildStep;
 import hudson.util.ListBoxModel;
@@ -26,7 +27,7 @@ import java.util.stream.Collectors;
  */
 public class BuildstashBuilder extends Publisher implements SimpleBuildStep {
 
-    private String apiKey;
+    private Secret apiKey;
     private String structure = "file";
     private String primaryFilePath;
     private String expansionFilePath;
@@ -61,7 +62,8 @@ public class BuildstashBuilder extends Publisher implements SimpleBuildStep {
             EnvVars env = build.getEnvironment(listener);
             
             // Expand environment variables in all fields
-            String expandedApiKey = expand(env, apiKey);
+            String apiKeyPlain = apiKey != null ? Secret.toString(apiKey) : null;
+            String expandedApiKey = expand(env, apiKeyPlain);
             String expandedStructure = expand(env, structure);
             // Ensure structure defaults to "file" if not set
             if (expandedStructure == null || expandedStructure.isBlank()) {
@@ -306,10 +308,10 @@ public class BuildstashBuilder extends Publisher implements SimpleBuildStep {
     }
 
     // Getters and Setters
-    public String getApiKey() { return apiKey; }
+    public Secret getApiKey() { return apiKey; }
     
     @DataBoundSetter
-    public void setApiKey(String apiKey) { this.apiKey = apiKey; }
+    public void setApiKey(Secret apiKey) { this.apiKey = apiKey; }
 
     public String getStructure() { return structure; }
     
