@@ -30,8 +30,8 @@
     </licenses>
 
     <scm>
-        <connection>scm:git:git://github.com/jenkinsci/buildstash-plugin.git</connection>
-        <developerConnection>scm:git:ssh://github.com:jenkinsci/buildstash-plugin.git</developerConnection>
+        <connection>scm:git:https://github.com/jenkinsci/buildstash-plugin.git</connection>
+        <developerConnection>scm:git:https://github.com:jenkinsci/buildstash-plugin.git</developerConnection>
         <url>https://github.com/jenkinsci/buildstash-plugin</url>
         <tag>HEAD</tag>
     </scm>

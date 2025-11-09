@@ -25,48 +25,6 @@
         <f:textbox />
     </f:entry>
     
-    <script>
-        (function() {
-            function initExpansionFieldToggle() {
-                var structureField = document.querySelector('select[name="structure"]');
-                var expansionInput = document.querySelector('input[name="expansionFilePath"]');
-                
-                if (!structureField || !expansionInput) {
-                    // Retry after a short delay if elements aren't ready yet
-                    setTimeout(initExpansionFieldToggle, 100);
-                    return;
-                }
-                
-                var expansionEntry = expansionInput.closest('tr');
-                if (!expansionEntry) {
-                    expansionEntry = expansionInput.closest('.form-group') || expansionInput.parentElement;
-                }
-                
-                function toggleExpansionField() {
-                    var structureValue = structureField.value;
-                    if (structureValue === 'file+expansion') {
-                        if (expansionEntry) expansionEntry.style.display = '';
-                    } else {
-                        if (expansionEntry) expansionEntry.style.display = 'none';
-                    }
-                }
-                
-                // Initial state
-                toggleExpansionField();
-                
-                // Update on change
-                structureField.addEventListener('change', toggleExpansionField);
-            }
-            
-            // Initialize when DOM is ready
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', initExpansionFieldToggle);
-            } else {
-                initExpansionFieldToggle();
-            }
-        })();
-    </script>
-    
     <f:entry title="Major Version" field="versionComponent1Major" description="Input each semantic version component independently for validation">
         <f:number min="0" max="9999" />
     </f:entry>
