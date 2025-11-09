@@ -42,10 +42,6 @@ public class BuildstashStepExecution extends SynchronousNonBlockingStepExecution
             throw new IllegalStateException("TaskListener not available");
         }
 
-        if (workspace == null) {
-            throw new IllegalStateException("Workspace not available");
-        }
-
         // Get environment variables for expansion (may be null in some contexts)
         if (env == null) {
             try {

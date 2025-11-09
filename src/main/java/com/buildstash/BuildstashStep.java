@@ -1,6 +1,7 @@
 package com.buildstash;
 
 import hudson.Extension;
+import hudson.FilePath;
 import hudson.model.TaskListener;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
@@ -11,7 +12,6 @@ import org.kohsuke.stapler.DataBoundSetter;
 import hudson.util.ListBoxModel;
 
 import java.io.Serializable;
-import java.util.Collections;
 import java.util.Set;
 
 /**
@@ -181,7 +181,7 @@ public class BuildstashStep extends Step implements Serializable {
 
         @Override
         public Set<? extends Class<?>> getRequiredContext() {
-            return Collections.singleton(TaskListener.class);
+            return Set.of(TaskListener.class, FilePath.class);
         }
 
         @Override
