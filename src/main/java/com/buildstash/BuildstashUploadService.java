@@ -2,6 +2,7 @@ package com.buildstash;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import hudson.FilePath;
+import hudson.ProxyConfiguration;
 import hudson.model.TaskListener;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -36,8 +37,8 @@ public class BuildstashUploadService {
         this.apiKey = apiKey;
         this.listener = listener;
         this.objectMapper = new ObjectMapper();
-        // Configure HttpClient to follow redirects automatically
-        this.httpClient = HttpClient.newBuilder()
+        // Use ProxyConfiguration to get a preconfigured HttpClient that supports Jenkins proxy settings
+        this.httpClient = ProxyConfiguration.newHttpClientBuilder()
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .build();
     }
