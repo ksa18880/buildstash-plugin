@@ -1,7 +1,6 @@
 package com.buildstash;
 
 import hudson.model.Action;
-import hudson.model.Run;
 
 /**
  * Build action to store Buildstash upload results.

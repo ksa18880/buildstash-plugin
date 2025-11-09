@@ -1,17 +1,11 @@
 package com.buildstash;
 
 import hudson.model.FreeStyleProject;
-import hudson.model.Run;
-import org.junit.Rule;
-import org.junit.Test;
-import org.jvnet.hudson.test.JenkinsRule;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class BuildstashBuilderTest {
-
-    @Rule
-    public JenkinsRule jenkins = new JenkinsRule();
 
     @Test
     public void testDescriptorProperties() {
