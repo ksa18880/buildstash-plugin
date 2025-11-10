@@ -5,73 +5,83 @@
         <l:main-panel>
             <h1>Buildstash Upload Results</h1>
             
-            <j:if test="${it.response != null}">
+            <j:if test="${it.hasResponses()}">
                 <div class="jenkins-section">
                     <h2>Uploaded Build Artifacts</h2>
                     
                     <table class="jenkins-table">
                         <thead>
                             <tr>
-                                <th>Property</th>
-                                <th>Value</th>
+                                <th>Build ID</th>
+                                <th>Platform</th>
+                                <th>Build Info URL</th>
+                                <th>Download URL</th>
+                                <th>Pending Processing</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td>Build ID</td>
-                                <td>
-                                    <j:if test="${it.buildId != null}">
-                                        <code>${it.buildId}</code>
-                                    </j:if>
-                                    <j:if test="${it.buildId == null}">
-                                        <span class="jenkins-form-label">N/A</span>
-                                    </j:if>
-                                </td>
-                            </tr>
-                            
-                            <j:if test="${it.buildInfoUrl != null}">
+                            <j:forEach var="response" items="${it.responses}">
                                 <tr>
-                                    <td>Build Info URL</td>
                                     <td>
-                                        <a href="${it.buildInfoUrl}" target="_blank" rel="noopener noreferrer" class="jenkins-table__link">
-                                            ${it.buildInfoUrl}
-                                        </a>
+                                        <j:if test="${response.buildId != null}">
+                                            <code>${response.buildId}</code>
+                                        </j:if>
+                                        <j:if test="${response.buildId == null}">
+                                            <span class="jenkins-form-label">N/A</span>
+                                        </j:if>
+                                    </td>
+                                    <td>
+                                        <j:if test="${response.platformShortName != null}">
+                                            ${response.platformShortName}
+                                        </j:if>
+                                        <j:if test="${response.platformShortName == null}">
+                                            <span class="jenkins-form-label">N/A</span>
+                                        </j:if>
+                                    </td>
+                                    <td>
+                                        <j:if test="${response.buildInfoUrl != null}">
+                                            <a href="${response.buildInfoUrl}" target="_blank" rel="noopener noreferrer" class="jenkins-table__link">
+                                                ${response.buildInfoUrl}
+                                            </a>
+                                        </j:if>
+                                        <j:if test="${response.buildInfoUrl == null}">
+                                            <span class="jenkins-form-label">N/A</span>
+                                        </j:if>
+                                    </td>
+                                    <td>
+                                        <j:if test="${response.downloadUrl != null}">
+                                            <a href="${response.downloadUrl}" target="_blank" rel="noopener noreferrer" class="jenkins-table__link">
+                                                ${response.downloadUrl}
+                                            </a>
+                                        </j:if>
+                                        <j:if test="${response.downloadUrl == null}">
+                                            <span class="jenkins-form-label">N/A</span>
+                                        </j:if>
+                                    </td>
+                                    <td>
+                                        <j:choose>
+                                            <j:when test="${response.pendingProcessing == true}">
+                                                <code>true</code>
+                                            </j:when>
+                                            <j:otherwise>
+                                                <code>false</code>
+                                            </j:otherwise>
+                                        </j:choose>
                                     </td>
                                 </tr>
-                            </j:if>
-                            
-                            <j:if test="${it.downloadUrl != null}">
-                                <tr>
-                                    <td>Download URL</td>
-                                    <td>
-                                        <a href="${it.downloadUrl}" target="_blank" rel="noopener noreferrer" class="jenkins-table__link">
-                                            ${it.downloadUrl}
-                                        </a>
-                                    </td>
-                                </tr>
-                            </j:if>
-                            
-                            <tr>
-                                <td>Pending Processing</td>
-                                <td>
-                                    <j:choose>
-                                        <j:when test="${it.pendingProcessing == true}">
-                                            <code>true</code>
-                                            <p>Post-upload processing required for this build, there may be a short delay before it is available for download</p>
-                                        </j:when>
-                                        <j:otherwise>
-                                            <code>false</code>
-                                            <p>Build available immediately, no further processing required.</p>
-                                        </j:otherwise>
-                                    </j:choose>
-                                </td>
-                            </tr>
+                            </j:forEach>
                         </tbody>
                     </table>
+                    
+                    <j:if test="${it.hasAnyPendingProcessing()}">
+                        <div class="jenkins-alert jenkins-alert-info">
+                            Post-upload processing required for some builds - there may be a short delay before relevant builds are available for download.
+                        </div>
+                    </j:if>
                 </div>
             </j:if>
             
-            <j:if test="${it.response == null}">
+            <j:if test="${!it.hasResponses()}">
                 <div class="jenkins-alert jenkins-alert-warning">
                     <strong>Warning:</strong> No upload information available.
                 </div>

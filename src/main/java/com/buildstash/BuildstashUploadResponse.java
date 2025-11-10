@@ -27,6 +27,8 @@ public class BuildstashUploadResponse implements Serializable {
     
     @JsonProperty("download_url")
     private String downloadUrl;
+    
+    private BuildInfo build;
 
     // Default constructor for JSON deserialization
     public BuildstashUploadResponse() {}
@@ -54,4 +56,42 @@ public class BuildstashUploadResponse implements Serializable {
 
     public String getDownloadUrl() { return downloadUrl; }
     public void setDownloadUrl(String downloadUrl) { this.downloadUrl = downloadUrl; }
+
+    public BuildInfo getBuild() { return build; }
+    public void setBuild(BuildInfo build) { this.build = build; }
+    
+    /**
+     * Get the platform short name from the build object.
+     * @return Platform short name, or null if not available
+     */
+    public String getPlatformShortName() {
+        return build != null && build.getPlatform() != null ? build.getPlatform().getShortName() : null;
+    }
+
+    /**
+     * Nested class for build information from the API response.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class BuildInfo implements Serializable {
+        private static final long serialVersionUID = 1L;
+        
+        private PlatformInfo platform;
+        
+        public PlatformInfo getPlatform() { return platform; }
+        public void setPlatform(PlatformInfo platform) { this.platform = platform; }
+    }
+    
+    /**
+     * Nested class for platform information.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class PlatformInfo implements Serializable {
+        private static final long serialVersionUID = 1L;
+        
+        @JsonProperty("short_name")
+        private String shortName;
+        
+        public String getShortName() { return shortName; }
+        public void setShortName(String shortName) { this.shortName = shortName; }
+    }
 } 

@@ -108,7 +108,13 @@ public class BuildstashStepExecution extends SynchronousNonBlockingStepExecution
         BuildstashUploadHelper.logResults(listener, response);
 
         // Store results as build actions for later access (for UI display)
-        run.addAction(new BuildstashBuildAction(response));
+        // Check if there's already a BuildstashBuildAction and add to it, otherwise create a new one
+        BuildstashBuildAction existingAction = run.getAction(BuildstashBuildAction.class);
+        if (existingAction != null) {
+            existingAction.addResponse(response);
+        } else {
+            run.addAction(new BuildstashBuildAction(response));
+        }
 
         // Return response as Map so it can be used in pipeline scripts without whitelisting
         Map<String, Object> result = new HashMap<>();

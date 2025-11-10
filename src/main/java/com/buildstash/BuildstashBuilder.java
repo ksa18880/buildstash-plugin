@@ -108,7 +108,13 @@ public class BuildstashBuilder extends Recorder implements SimpleBuildStep {
             BuildstashUploadHelper.logResults(listener, response);
 
             // Store results as build actions for later access
-            build.addAction(new BuildstashBuildAction(response));
+            // Check if there's already a BuildstashBuildAction and add to it, otherwise create a new one
+            BuildstashBuildAction existingAction = build.getAction(BuildstashBuildAction.class);
+            if (existingAction != null) {
+                existingAction.addResponse(response);
+            } else {
+                build.addAction(new BuildstashBuildAction(response));
+            }
 
         } catch (Exception e) {
             listener.error("Buildstash upload failed: " + e.getMessage());
