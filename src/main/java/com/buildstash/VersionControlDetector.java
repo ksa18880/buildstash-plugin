@@ -45,45 +45,45 @@ public class VersionControlDetector {
 
             if (scm == null) {
                 // For pipelines, BuildData is the most reliable source for Git information
-                populateFromBuildData(build, request);
+                populateFromBuildData(build, request, listener);
                 return;
             }
 
             // Detect SCM type
             String detectedHostType = detectHostType(scm);
-            if (detectedHostType != null && isEmpty(request.getVcHostType())) {
+            if (detectedHostType != null && isNullOrBlank(request.getVcHostType())) {
                 request.setVcHostType(detectedHostType);
             }
 
             // Get repository URL
-            String repoUrl = getRepositoryUrl(build, scm);
+            String repoUrl = getRepositoryUrl(build, scm, listener);
             if (repoUrl != null && !repoUrl.isBlank()) {
                 // Detect host from URL
                 String detectedHost = detectHostFromUrl(repoUrl);
-                if (detectedHost != null && isEmpty(request.getVcHost())) {
+                if (detectedHost != null && isNullOrBlank(request.getVcHost())) {
                     request.setVcHost(detectedHost);
                 }
 
                 // Extract repo name from URL
                 String detectedRepoName = extractRepoNameFromUrl(repoUrl);
-                if (detectedRepoName != null && isEmpty(request.getVcRepoName())) {
+                if (detectedRepoName != null && isNullOrBlank(request.getVcRepoName())) {
                     request.setVcRepoName(detectedRepoName);
                 }
 
                 // Set repo URL if not already set
-                if (isEmpty(request.getVcRepoUrl())) {
+                if (isNullOrBlank(request.getVcRepoUrl())) {
                     request.setVcRepoUrl(repoUrl);
                 }
             }
 
             // Get branch information (try multiple methods)
-            String detectedBranch = getBranch(build, scm);
-            if (detectedBranch != null && isEmpty(request.getVcBranch())) {
+            String detectedBranch = getBranch(build, scm, listener);
+            if (detectedBranch != null && isNullOrBlank(request.getVcBranch())) {
                 request.setVcBranch(detectedBranch);
             }
 
             // Get commit SHA (try multiple methods)
-            if (isEmpty(request.getVcCommitSha())) {
+            if (isNullOrBlank(request.getVcCommitSha())) {
                 // For SVN, try SCM-specific methods first
                 String detectedCommitSha = null;
                 if (detectedHostType != null && detectedHostType.equals("svn")) {
@@ -91,7 +91,7 @@ public class VersionControlDetector {
                 }
                 // Fall back to generic method if SVN-specific didn't work
                 if (detectedCommitSha == null || detectedCommitSha.isBlank()) {
-                    detectedCommitSha = getCommitSha(build);
+                    detectedCommitSha = getCommitSha(build, listener);
                 }
                 if (detectedCommitSha != null && !detectedCommitSha.isBlank()) {
                     request.setVcCommitSha(detectedCommitSha);
@@ -99,7 +99,7 @@ public class VersionControlDetector {
             }
 
             // Generate commit URL if we have repo URL and commit SHA
-            if (isEmpty(request.getVcCommitUrl())) {
+            if (isNullOrBlank(request.getVcCommitUrl())) {
                 String finalCommitSha = request.getVcCommitSha();
                 String finalRepoUrl = request.getVcRepoUrl();
                 String finalHostType = request.getVcHostType();
@@ -113,15 +113,13 @@ public class VersionControlDetector {
 
         } catch (Exception e) {
             // Silently fail - don't break the build if VC detection fails
-            // This allows the build to continue even if VC info can't be detected
         }
     }
 
-
     /**
-     * Helper to check if a string is null or empty.
+     * Helper to check if a string is null or blank (empty or whitespace-only).
      */
-    private static boolean isEmpty(String str) {
+    private static boolean isNullOrBlank(String str) {
         return str == null || str.isBlank();
     }
 
@@ -129,7 +127,7 @@ public class VersionControlDetector {
      * Populates SCM info from BuildData (for pipelines).
      * This is more reliable than environment variables for Git information.
      */
-    private static void populateFromBuildData(Run<?, ?> build, BuildstashUploadRequest request) {
+    private static void populateFromBuildData(Run<?, ?> build, BuildstashUploadRequest request, TaskListener listener) {
         try {
             // Try to get BuildData from the build
             // In pipelines, BuildData is in actions, so check all actions first
@@ -177,7 +175,7 @@ public class VersionControlDetector {
             }
 
             // Get repository URL from BuildData
-            if (isEmpty(request.getVcRepoUrl())) {
+            if (isNullOrBlank(request.getVcRepoUrl())) {
                 try {
                     java.lang.reflect.Method getRemoteUrls = buildDataClass.getMethod("getRemoteUrls");
                     Object remoteUrls = getRemoteUrls.invoke(buildData);
@@ -204,17 +202,16 @@ public class VersionControlDetector {
                                 }
                             }
                         }
-                        
                         if (repoUrl != null && !repoUrl.isBlank()) {
                             request.setVcRepoUrl(repoUrl);
                             // Detect host and repo name from URL
-                            if (isEmpty(request.getVcHost())) {
+                            if (isNullOrBlank(request.getVcHost())) {
                                 String host = detectHostFromUrl(repoUrl);
                                 if (host != null) {
                                     request.setVcHost(host);
                                 }
                             }
-                            if (isEmpty(request.getVcRepoName())) {
+                            if (isNullOrBlank(request.getVcRepoName())) {
                                 String repoName = extractRepoNameFromUrl(repoUrl);
                                 if (repoName != null) {
                                     request.setVcRepoName(repoName);
@@ -228,8 +225,8 @@ public class VersionControlDetector {
             }
 
             // Get branch from BuildData
-            if (isEmpty(request.getVcBranch())) {
-                // Try getBuildsByBranchName first (more reliable for pipelines)
+            if (isNullOrBlank(request.getVcBranch())) {
+                // Try getBuildsByBranchName (more reliable for pipelines)
                 try {
                     java.lang.reflect.Method getBuildsByBranchName = buildDataClass.getMethod("getBuildsByBranchName");
                     Object buildsByBranch = getBuildsByBranchName.invoke(buildData);
@@ -252,54 +249,20 @@ public class VersionControlDetector {
                         }
                     }
                 } catch (Exception e) {
-                    // Try getLastBuiltRevision as fallback
-                    try {
-                        java.lang.reflect.Method getLastBuiltRevision = buildDataClass.getMethod("getLastBuiltRevision");
-                        Object revision = getLastBuiltRevision.invoke(buildData);
-                        if (revision != null) {
-                            try {
-                                java.lang.reflect.Method getBranch = revision.getClass().getMethod("getBranch");
-                                Object branch = getBranch.invoke(revision);
-                                if (branch != null) {
-                                    try {
-                                        java.lang.reflect.Method getName = branch.getClass().getMethod("getName");
-                                        Object nameObj = getName.invoke(branch);
-                                        String branchName = nameObj != null ? nameObj.toString() : null;
-                                        if (branchName != null && !branchName.isBlank()) {
-                                            // Clean up branch name
-                                            branchName = branchName
-                                                .replaceAll("^refs/remotes/origin/", "")
-                                                .replaceAll("^refs/heads/", "")
-                                                .replaceAll("^origin/", "")
-                                                .replaceAll("^remotes/origin/", "")
-                                                .replaceAll("^\\*/", "")
-                                                .replaceAll("^\\*", "");
-                                            request.setVcBranch(branchName);
-                                        }
-                                    } catch (Exception e2) {
-                                        // Ignore
-                                    }
-                                }
-                            } catch (Exception e2) {
-                                // Ignore
-                            }
-                        }
-                    } catch (Exception e2) {
-                        // Ignore
-                    }
+                    // Ignore
                 }
             }
 
             // Get commit SHA from BuildData
-            if (isEmpty(request.getVcCommitSha())) {
-                String commitSha = getCommitSha(build);
+            if (isNullOrBlank(request.getVcCommitSha())) {
+                String commitSha = getCommitSha(build, listener);
                 if (commitSha != null && !commitSha.isBlank()) {
                     request.setVcCommitSha(commitSha);
                 }
             }
 
             // Generate commit URL if we have repo URL and commit SHA
-            if (isEmpty(request.getVcCommitUrl())) {
+            if (isNullOrBlank(request.getVcCommitUrl())) {
                 String finalCommitSha = request.getVcCommitSha();
                 String finalRepoUrl = request.getVcRepoUrl();
                 String finalHostType = request.getVcHostType();
@@ -312,7 +275,7 @@ public class VersionControlDetector {
             }
 
             // Set host type if not set
-            if (isEmpty(request.getVcHostType())) {
+            if (isNullOrBlank(request.getVcHostType())) {
                 request.setVcHostType("git");
             }
         } catch (Exception e) {
@@ -348,7 +311,7 @@ public class VersionControlDetector {
     /**
      * Gets the repository URL from the build/SCM using reflection.
      */
-    private static String getRepositoryUrl(Run<?, ?> build, SCM scm) {
+    private static String getRepositoryUrl(Run<?, ?> build, SCM scm, TaskListener listener) {
         String scmClass = scm.getClass().getName();
         
         // Try to get from GitSCM using reflection
@@ -483,29 +446,6 @@ public class VersionControlDetector {
                             }
                         } catch (Exception e2) {
                             // Ignore
-                        }
-                    }
-                } catch (Exception e) {
-                    // Ignore
-                }
-            }
-        } catch (Exception e) {
-            // Ignore
-        }
-
-        // Try to get from BuildData action (for Git) using reflection
-        try {
-            Class<?> buildDataClass = Class.forName("hudson.plugins.git.util.BuildData");
-            java.lang.reflect.Method getActionMethod = build.getClass().getMethod("getAction", Class.class);
-            Object buildData = getActionMethod.invoke(build, buildDataClass);
-            if (buildData != null) {
-                try {
-                    java.lang.reflect.Method getRemoteUrls = buildDataClass.getMethod("getRemoteUrls");
-                    Object remoteUrls = getRemoteUrls.invoke(buildData);
-                    if (remoteUrls instanceof java.util.Map) {
-                        java.util.Map<?, ?> map = (java.util.Map<?, ?>) remoteUrls;
-                        if (!map.isEmpty()) {
-                            return (String) map.values().iterator().next();
                         }
                     }
                 } catch (Exception e) {
@@ -690,72 +630,7 @@ public class VersionControlDetector {
     /**
      * Gets the branch name from the build/SCM using reflection.
      */
-    private static String getBranch(Run<?, ?> build, SCM scm) {
-        // Try to get from BuildData (for Git) using reflection
-        try {
-            Class<?> buildDataClass = Class.forName("hudson.plugins.git.util.BuildData");
-            java.lang.reflect.Method getActionMethod = build.getClass().getMethod("getAction", Class.class);
-            Object buildData = getActionMethod.invoke(build, buildDataClass);
-            if (buildData != null) {
-                try {
-                    // Try getLastBuiltRevision() first
-                    java.lang.reflect.Method getLastBuiltRevision = buildDataClass.getMethod("getLastBuiltRevision");
-                    Object revision = getLastBuiltRevision.invoke(buildData);
-                    if (revision != null) {
-                        try {
-                            java.lang.reflect.Method getBranch = revision.getClass().getMethod("getBranch");
-                            Object branch = getBranch.invoke(revision);
-                            if (branch != null) {
-                                    try {
-                                        java.lang.reflect.Method getName = branch.getClass().getMethod("getName");
-                                        String branchName = (String) getName.invoke(branch);
-                                        if (branchName != null && !branchName.isBlank()) {
-                                        // Clean up branch name: remove refs/heads/, origin/, */ prefixes
-                                        return branchName
-                                            .replaceAll("^refs/heads/", "")
-                                            .replaceAll("^origin/", "")
-                                            .replaceAll("^\\*/", "")
-                                            .replaceAll("^\\*", "");
-                                    }
-                                } catch (Exception e) {
-                                    // Ignore
-                                }
-                            }
-                        } catch (Exception e) {
-                            // Ignore
-                        }
-                    }
-                } catch (Exception e) {
-                    // Ignore
-                }
-
-                // Try getBuildsByBranchName() as alternative
-                try {
-                    java.lang.reflect.Method getBuildsByBranchName = buildDataClass.getMethod("getBuildsByBranchName");
-                    Object buildsByBranch = getBuildsByBranchName.invoke(buildData);
-                    if (buildsByBranch instanceof java.util.Map) {
-                        java.util.Map<?, ?> map = (java.util.Map<?, ?>) buildsByBranch;
-                        if (!map.isEmpty()) {
-                            // Get the first branch name
-                            String branchName = (String) map.keySet().iterator().next();
-                            if (branchName != null && !branchName.isBlank()) {
-                                // Clean up branch name: remove refs/heads/, origin/, */ prefixes
-                                return branchName
-                                    .replaceAll("^refs/heads/", "")
-                                    .replaceAll("^origin/", "")
-                                    .replaceAll("^\\*/", "")
-                                    .replaceAll("^\\*", "");
-                            }
-                        }
-                    }
-                } catch (Exception e) {
-                    // Ignore
-                }
-            }
-        } catch (Exception e) {
-            // Ignore - Git plugin might not be available
-        }
-
+    private static String getBranch(Run<?, ?> build, SCM scm, TaskListener listener) {
         // Try to get from SCM branches configuration (for GitSCM)
         try {
             if (scm.getClass().getName().contains("GitSCM")) {
@@ -779,15 +654,7 @@ public class VersionControlDetector {
                                         .replaceAll("^\\*", "");
                                 }
                             } catch (Exception e) {
-                                // Try toString() as fallback
-                                String branchStr = branchSpec.toString();
-                                if (branchStr != null && !branchStr.isBlank()) {
-                                    return branchStr
-                                        .replaceAll("^refs/heads/", "")
-                                        .replaceAll("^origin/", "")
-                                        .replaceAll("^\\*/", "")
-                                        .replaceAll("^\\*", "");
-                                }
+                                // Ignore
                             }
                         }
                     }
@@ -810,7 +677,8 @@ public class VersionControlDetector {
         try {
             hudson.EnvVars env = build.getEnvironment(listener);
             String[] envVars = {"SVN_REVISION", "SVN_REV", "SVN_REVISION_NUMBER", "SVN_VERSION"};
-            for (String envVar : envVars) {
+            for (int i = 0; i < envVars.length; i++) {
+                String envVar = envVars[i];
                 String value = env.get(envVar);
                 if (value != null && !value.isBlank()) {
                     return value;
@@ -824,7 +692,8 @@ public class VersionControlDetector {
         try {
             // Try methods that might return revision
             String[] methodNames = {"getRevision", "getRevisionNumber", "getLastRevision", "getCurrentRevision"};
-            for (String methodName : methodNames) {
+            for (int i = 0; i < methodNames.length; i++) {
+                String methodName = methodNames[i];
                 try {
                     java.lang.reflect.Method method = scm.getClass().getMethod(methodName);
                     Object result = method.invoke(scm);
@@ -853,7 +722,8 @@ public class VersionControlDetector {
                 java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("r(\\d+)");
                 java.util.regex.Matcher matcher = pattern.matcher(displayName);
                 if (matcher.find()) {
-                    return matcher.group(1);
+                    String revision = matcher.group(1);
+                    return revision;
                 }
             }
         } catch (Exception e) {
@@ -867,89 +737,8 @@ public class VersionControlDetector {
      * Gets the commit SHA from the build.
      * Tries multiple methods to get the commit SHA, which is shown as "Revision" in Jenkins UI.
      */
-    private static String getCommitSha(Run<?, ?> build) {
-        // Method 1: Try to get from BuildData (for Git) - this is what shows as "Revision" in UI
-        try {
-            Class<?> buildDataClass = Class.forName("hudson.plugins.git.util.BuildData");
-            java.lang.reflect.Method getActionMethod = build.getClass().getMethod("getAction", Class.class);
-            Object buildData = getActionMethod.invoke(build, buildDataClass);
-            if (buildData != null) {
-                // Try getLastBuiltRevision().getSha1String()
-                try {
-                    java.lang.reflect.Method getLastBuiltRevision = buildDataClass.getMethod("getLastBuiltRevision");
-                    Object revision = getLastBuiltRevision.invoke(buildData);
-                    if (revision != null) {
-                        // Try getSha1String() first
-                        try {
-                            java.lang.reflect.Method getSha1String = revision.getClass().getMethod("getSha1String");
-                            String sha = (String) getSha1String.invoke(revision);
-                            if (sha != null && !sha.isBlank()) {
-                                return sha;
-                            }
-                        } catch (Exception e) {
-                            // Try getSha1() and convert to string
-                            try {
-                                java.lang.reflect.Method getSha1 = revision.getClass().getMethod("getSha1");
-                                Object sha1Obj = getSha1.invoke(revision);
-                                if (sha1Obj != null) {
-                                    String sha = sha1Obj.toString();
-                                    if (sha != null && !sha.isBlank()) {
-                                        return sha;
-                                    }
-                                }
-                            } catch (Exception e2) {
-                                // Try getName() as alternative
-                                try {
-                                    java.lang.reflect.Method getName = revision.getClass().getMethod("getName");
-                                    String sha = (String) getName.invoke(revision);
-                                    if (sha != null && !sha.isBlank()) {
-                                        return sha;
-                                    }
-                                } catch (Exception e3) {
-                                    // Ignore
-                                }
-                            }
-                        }
-                    }
-                } catch (Exception e) {
-                    // Ignore
-                }
-
-                // Try getBuildsByBranchName() and get the revision from there
-                try {
-                    java.lang.reflect.Method getBuildsByBranchName = buildDataClass.getMethod("getBuildsByBranchName");
-                    Object buildsByBranch = getBuildsByBranchName.invoke(buildData);
-                    if (buildsByBranch instanceof java.util.Map) {
-                        java.util.Map<?, ?> map = (java.util.Map<?, ?>) buildsByBranch;
-                        if (!map.isEmpty()) {
-                            // Get the first revision from the map
-                            Object revisionObj = map.values().iterator().next();
-                            if (revisionObj != null) {
-                                try {
-                                    java.lang.reflect.Method getSha1String = revisionObj.getClass().getMethod("getSha1String");
-                                    String sha = (String) getSha1String.invoke(revisionObj);
-                                    if (sha != null && !sha.isBlank()) {
-                                        return sha;
-                                    }
-                                } catch (Exception e) {
-                                    // Try toString()
-                                    String sha = revisionObj.toString();
-                                    if (sha != null && !sha.isBlank() && sha.length() >= 7) {
-                                        return sha;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } catch (Exception e) {
-                    // Ignore
-                }
-            }
-        } catch (Exception e) {
-            // Ignore - Git plugin might not be available
-        }
-
-        // Method 2: Try to get from change sets (works for Git, SVN, etc.)
+    private static String getCommitSha(Run<?, ?> build, TaskListener listener) {
+        // Method 1: Try to get from change sets (for SVN)
         try {
             java.lang.reflect.Method getChangeSetMethod = build.getClass().getMethod("getChangeSet");
             ChangeLogSet<?> changeSet = (ChangeLogSet<?>) getChangeSetMethod.invoke(build);
@@ -957,7 +746,7 @@ public class VersionControlDetector {
             if (changeSet != null && !changeSet.isEmptySet()) {
                 for (ChangeLogSet.Entry entry : changeSet) {
                     if (entry != null) {
-                        // For SVN, try getRevision() first
+                        // For SVN, try getRevision()
                         try {
                             java.lang.reflect.Method getRevision = entry.getClass().getMethod("getRevision");
                             Object revisionObj = getRevision.invoke(entry);
@@ -968,15 +757,7 @@ public class VersionControlDetector {
                                 }
                             }
                         } catch (Exception e) {
-                            // Not SVN, try getCommitId() for Git
-                            try {
-                                String commitId = entry.getCommitId();
-                                if (commitId != null && !commitId.isBlank()) {
-                                    return commitId;
-                                }
-                            } catch (Exception e2) {
-                                // Ignore
-                            }
+                            // Not SVN, ignore
                         }
                         
                         // Only process first entry for now
@@ -988,7 +769,7 @@ public class VersionControlDetector {
             // Ignore
         }
 
-        // Method 3: Try to get from all actions (look for BuildData in all actions, or SVNRevisionState for SVN)
+        // Method 2: Try to get from all actions (look for BuildData in all actions, or SVNRevisionState for SVN)
         try {
             java.util.Collection<?> actions = build.getAllActions();
             for (Object action : actions) {
@@ -1081,7 +862,6 @@ public class VersionControlDetector {
 
         return null;
     }
-
 
     /**
      * Extracts repository name from Perforce depot path.
@@ -1210,5 +990,3 @@ public class VersionControlDetector {
         return null;
     }
 }
-
-
