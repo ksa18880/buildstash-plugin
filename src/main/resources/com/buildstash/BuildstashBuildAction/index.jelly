@@ -9,56 +9,64 @@
                 <div class="jenkins-section">
                     <h2>Uploaded Build Artifacts</h2>
                     
-                    <table class="pane bigtable">
-                        <tr>
-                            <td class="pane-header">Build ID</td>
-                            <td class="pane">
-                                <j:if test="${it.buildId != null}">
-                                    <code>${it.buildId}</code>
-                                </j:if>
-                                <j:if test="${it.buildId == null}">
-                                    <span class="jenkins-form-label">N/A</span>
-                                </j:if>
-                            </td>
-                        </tr>
-                        
-                        <j:if test="${it.buildInfoUrl != null}">
+                    <table class="jenkins-table">
+                        <thead>
                             <tr>
-                                <td class="pane-header">Build Info URL</td>
-                                <td class="pane">
-                                    <a href="${it.buildInfoUrl}" target="_blank" rel="noopener noreferrer">
-                                        ${it.buildInfoUrl}
-                                    </a>
+                                <th>Property</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Build ID</td>
+                                <td>
+                                    <j:if test="${it.buildId != null}">
+                                        <code>${it.buildId}</code>
+                                    </j:if>
+                                    <j:if test="${it.buildId == null}">
+                                        <span class="jenkins-form-label">N/A</span>
+                                    </j:if>
                                 </td>
                             </tr>
-                        </j:if>
-                        
-                        <j:if test="${it.downloadUrl != null}">
+                            
+                            <j:if test="${it.buildInfoUrl != null}">
+                                <tr>
+                                    <td>Build Info URL</td>
+                                    <td>
+                                        <a href="${it.buildInfoUrl}" target="_blank" rel="noopener noreferrer" class="jenkins-table__link">
+                                            ${it.buildInfoUrl}
+                                        </a>
+                                    </td>
+                                </tr>
+                            </j:if>
+                            
+                            <j:if test="${it.downloadUrl != null}">
+                                <tr>
+                                    <td>Download URL</td>
+                                    <td>
+                                        <a href="${it.downloadUrl}" target="_blank" rel="noopener noreferrer" class="jenkins-table__link">
+                                            ${it.downloadUrl}
+                                        </a>
+                                    </td>
+                                </tr>
+                            </j:if>
+                            
                             <tr>
-                                <td class="pane-header">Download URL</td>
-                                <td class="pane">
-                                    <a href="${it.downloadUrl}" target="_blank" rel="noopener noreferrer">
-                                        ${it.downloadUrl}
-                                    </a>
+                                <td>Pending Processing</td>
+                                <td>
+                                    <j:choose>
+                                        <j:when test="${it.pendingProcessing == true}">
+                                            <code>true</code>
+                                            <p>Post-upload processing required for this build, there may be a short delay before it is available for download</p>
+                                        </j:when>
+                                        <j:otherwise>
+                                            <code>false</code>
+                                            <p>Build available immediately, no further processing required.</p>
+                                        </j:otherwise>
+                                    </j:choose>
                                 </td>
                             </tr>
-                        </j:if>
-                        
-                        <tr>
-                            <td class="pane-header">Pending Processing</td>
-                            <td class="pane">
-                                <j:choose>
-                                    <j:when test="${it.pendingProcessing == true}">
-                                        <code>true</code>
-                                        <p>Post-upload processing required for this build, there may be a short delay before it is available for download</p>
-                                    </j:when>
-                                    <j:otherwise>
-                                        <code>false</code>
-                                        <p>Build available immediately, no further processing required.</p>
-                                    </j:otherwise>
-                                </j:choose>
-                            </td>
-                        </tr>
+                        </tbody>
                     </table>
                 </div>
             </j:if>
