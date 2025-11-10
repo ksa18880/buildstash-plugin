@@ -8,8 +8,6 @@ import hudson.util.Secret;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.SynchronousNonBlockingStepExecution;
 
-import java.io.IOException;
-import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -17,7 +15,7 @@ import java.util.Map;
  * Execution class for the Buildstash step.
  * Handles the actual upload process to the Buildstash service.
  */
-public class BuildstashStepExecution extends SynchronousNonBlockingStepExecution<Map<String, Object>> implements Serializable {
+public class BuildstashStepExecution extends SynchronousNonBlockingStepExecution<Map<String, Object>> {
 
     private static final long serialVersionUID = 1L;
 
@@ -33,20 +31,25 @@ public class BuildstashStepExecution extends SynchronousNonBlockingStepExecution
         TaskListener listener = getContext().get(TaskListener.class);
         FilePath workspace = getContext().get(FilePath.class);
         Run<?, ?> run = getContext().get(Run.class);
-        EnvVars env = getContext().get(EnvVars.class);
+        EnvVars envFromContext = getContext().get(EnvVars.class);
 
         if (listener == null) {
             throw new IllegalStateException("TaskListener not available");
         }
 
-        // Get environment variables for expansion (may be null in some contexts)
-        if (env == null) {
-            try {
-                env = run.getEnvironment(listener);
-            } catch (Exception e) {
-                // If we can't get environment, create empty one
-                env = new EnvVars();
+        // Get environment variables for expansion
+        // Always use run.getEnvironment() to ensure we have Git environment variables
+        // (GIT_URL, GIT_BRANCH, GIT_COMMIT) that are set by the Git plugin
+        EnvVars env;
+        try {
+            env = run.getEnvironment(listener);
+            // Merge with context env vars if available (context might have step-specific vars)
+            if (envFromContext != null) {
+                env.overrideAll(envFromContext);
             }
+        } catch (Exception e) {
+            // If we can't get environment, use context env or create empty one
+            env = envFromContext != null ? envFromContext : new EnvVars();
         }
         
         // Expand environment variables in all fields
@@ -93,6 +96,10 @@ public class BuildstashStepExecution extends SynchronousNonBlockingStepExecution
                 expandedVersionComponentMeta, expandedCustomBuildNumber, expandedLabels, expandedArchitectures,
                 expandedPlatform, expandedStream, expandedNotes, expandedVcHostType, expandedVcHost,
                 expandedVcRepoName, expandedVcRepoUrl, expandedVcBranch, expandedVcCommitSha, expandedVcCommitUrl);
+        
+        // Auto-detect SCM info from BuildData (for pipelines)
+        // This MUST be called after createUploadRequest so the request object is fully initialized
+        VersionControlDetector.populateVersionControlInfo(run, request);
 
         // Execute upload
         BuildstashUploadResponse response = uploadService.upload(request);

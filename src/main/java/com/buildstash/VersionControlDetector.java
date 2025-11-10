@@ -35,8 +35,8 @@ public class VersionControlDetector {
             }
 
             if (scm == null) {
-                // Try to get info from environment variables (for pipelines)
-                populateFromEnvironment(build, request);
+                // For pipelines, BuildData is the most reliable source for Git information
+                populateFromBuildData(build, request);
                 return;
             }
 
@@ -73,11 +73,7 @@ public class VersionControlDetector {
                 request.setVcBranch(detectedBranch);
             }
 
-            // Also try environment variables first (even if SCM is available)
-            // This is important for Pipeline builds where env vars are more reliable
-            populateFromEnvironment(build, request);
-
-            // Get commit SHA (try multiple methods) - only if not already set from environment
+            // Get commit SHA (try multiple methods)
             if (isEmpty(request.getVcCommitSha())) {
                 String detectedCommitSha = getCommitSha(build);
                 if (detectedCommitSha != null && !detectedCommitSha.isBlank()) {
@@ -111,154 +107,199 @@ public class VersionControlDetector {
     }
 
     /**
-     * Populates VC info from environment variables (useful for pipelines).
+     * Populates SCM info from BuildData (for pipelines).
+     * This is more reliable than environment variables for Git information.
      */
-    private static void populateFromEnvironment(Run<?, ?> build, BuildstashUploadRequest request) {
+    private static void populateFromBuildData(Run<?, ?> build, BuildstashUploadRequest request) {
         try {
-            // Try to get environment variables using reflection
-            Object env = null;
+            // Try to get BuildData from the build
+            // In pipelines, BuildData is in actions, so check all actions first
+            Object buildData = null;
+            Class<?> buildDataClass = null;
+            
+            // First, check all actions to find BuildData (works even if Class.forName fails)
             try {
-                // For WorkflowRun, try to get environment
-                if (build.getClass().getName().contains("WorkflowRun")) {
-                    java.lang.reflect.Method getEnvMethod = build.getClass().getMethod("getEnvironment", hudson.model.TaskListener.class);
-                    env = getEnvMethod.invoke(build, (hudson.model.TaskListener) null);
+                java.util.Collection<?> actions = build.getActions();
+                // Look for BuildData by checking class name (more reliable than Class.forName)
+                for (Object action : actions) {
+                    if (action != null) {
+                        String actionClass = action.getClass().getName();
+                        // Check if it's BuildData by class name
+                        if (actionClass.equals("hudson.plugins.git.util.BuildData") || 
+                            actionClass.equals("org.jenkinsci.plugins.git.util.BuildData")) {
+                            buildData = action;
+                            buildDataClass = action.getClass();
+                            break;
+                        }
+                    }
                 }
             } catch (Exception e) {
                 // Ignore
             }
-
-            if (env != null) {
+            
+            // If not found in actions, try getAction with Class.forName
+            if (buildData == null) {
                 try {
-                    java.lang.reflect.Method getMethod = env.getClass().getMethod("get", String.class);
-                    
-                    // Try GIT_URL
-                    String gitUrl = (String) getMethod.invoke(env, "GIT_URL");
-                    if (gitUrl != null && !gitUrl.isBlank() && isEmpty(request.getVcRepoUrl())) {
-                        request.setVcRepoUrl(gitUrl);
-                        if (isEmpty(request.getVcHost())) {
-                            String host = detectHostFromUrl(gitUrl);
-                            if (host != null) {
-                                request.setVcHost(host);
+                    buildDataClass = Class.forName("hudson.plugins.git.util.BuildData");
+                    java.lang.reflect.Method getActionMethod = build.getClass().getMethod("getAction", Class.class);
+                    buildData = getActionMethod.invoke(build, buildDataClass);
+                } catch (Exception e) {
+                    // Ignore
+                }
+            }
+            
+            if (buildData == null) {
+                return;
+            }
+            
+            // If we found BuildData but don't have the class, get it from the object
+            if (buildDataClass == null) {
+                buildDataClass = buildData.getClass();
+            }
+
+            // Get repository URL from BuildData
+            if (isEmpty(request.getVcRepoUrl())) {
+                try {
+                    java.lang.reflect.Method getRemoteUrls = buildDataClass.getMethod("getRemoteUrls");
+                    Object remoteUrls = getRemoteUrls.invoke(buildData);
+                    if (remoteUrls != null) {
+                        String repoUrl = null;
+                        
+                        // Handle Collection (HashSet, List, etc.)
+                        if (remoteUrls instanceof java.util.Collection) {
+                            java.util.Collection<?> collection = (java.util.Collection<?>) remoteUrls;
+                            if (!collection.isEmpty()) {
+                                Object firstElement = collection.iterator().next();
+                                repoUrl = firstElement != null ? firstElement.toString() : null;
+                            }
+                        } else if (remoteUrls instanceof java.util.Map) {
+                            java.util.Map<?, ?> map = (java.util.Map<?, ?>) remoteUrls;
+                            if (!map.isEmpty()) {
+                                // Try values first (URLs are typically values)
+                                Object firstValue = map.values().iterator().next();
+                                repoUrl = firstValue != null ? firstValue.toString() : null;
+                                // If that doesn't work, try keys
+                                if (repoUrl == null || repoUrl.isBlank()) {
+                                    Object firstKey = map.keySet().iterator().next();
+                                    repoUrl = firstKey != null ? firstKey.toString() : null;
+                                }
                             }
                         }
-                        if (isEmpty(request.getVcRepoName())) {
-                            String repoName = extractRepoNameFromUrl(gitUrl);
-                            if (repoName != null) {
-                                request.setVcRepoName(repoName);
+                        
+                        if (repoUrl != null && !repoUrl.isBlank()) {
+                            request.setVcRepoUrl(repoUrl);
+                            // Detect host and repo name from URL
+                            if (isEmpty(request.getVcHost())) {
+                                String host = detectHostFromUrl(repoUrl);
+                                if (host != null) {
+                                    request.setVcHost(host);
+                                }
                             }
-                        }
-                    }
-
-                    // Try GIT_BRANCH
-                    String gitBranch = (String) getMethod.invoke(env, "GIT_BRANCH");
-                    if (gitBranch != null && !gitBranch.isBlank() && isEmpty(request.getVcBranch())) {
-                        // Clean up branch name: remove origin/, refs/heads/, */ prefixes
-                        String cleanedBranch = gitBranch
-                            .replaceAll("^origin/", "")
-                            .replaceAll("^refs/heads/", "")
-                            .replaceAll("^\\*/", "")
-                            .replaceAll("^\\*", "");
-                        request.setVcBranch(cleanedBranch);
-                    }
-
-                    // Try GIT_COMMIT
-                    String gitCommit = (String) getMethod.invoke(env, "GIT_COMMIT");
-                    if (gitCommit != null && !gitCommit.isBlank() && isEmpty(request.getVcCommitSha())) {
-                        request.setVcCommitSha(gitCommit);
-                    }
-
-                    // Also try GIT_COMMIT_SHORT if GIT_COMMIT wasn't available
-                    if (isEmpty(request.getVcCommitSha())) {
-                        String gitCommitShort = (String) getMethod.invoke(env, "GIT_COMMIT_SHORT");
-                        if (gitCommitShort != null && !gitCommitShort.isBlank()) {
-                            // Try to get full commit from BuildData if available
-                            String fullCommit = getFullCommitFromShort(build, gitCommitShort);
-                            request.setVcCommitSha(fullCommit != null ? fullCommit : gitCommitShort);
-                        }
-                    }
-
-                    // Generate commit URL if we have both
-                    String finalCommitSha = request.getVcCommitSha();
-                    if (isEmpty(request.getVcCommitUrl()) && gitUrl != null && finalCommitSha != null) {
-                        String commitUrl = generateCommitUrl(gitUrl, finalCommitSha);
-                        if (commitUrl != null) {
-                            request.setVcCommitUrl(commitUrl);
-                        }
-                    }
-
-                    // Set host type if not set
-                    if (isEmpty(request.getVcHostType()) && (gitUrl != null || gitCommit != null)) {
-                        request.setVcHostType("git");
-                    }
-
-                    // Try Perforce environment variables (P4 Plugin)
-                    String p4Changelist = (String) getMethod.invoke(env, "P4_CHANGELIST");
-                    String p4DepotPath = (String) getMethod.invoke(env, "P4_DEPOT_PATH");
-                    String p4Port = (String) getMethod.invoke(env, "P4_PORT");
-                    
-                    if (p4Changelist != null || p4DepotPath != null || p4Port != null) {
-                        // Set host type to perforce
-                        if (isEmpty(request.getVcHostType())) {
-                            request.setVcHostType("perforce");
-                        }
-                        
-                        // Set host to perforce
-                        if (isEmpty(request.getVcHost())) {
-                            request.setVcHost("perforce");
-                        }
-                        
-                        // Use changelist as commit SHA (Perforce uses changelists instead of commits)
-                        if (p4Changelist != null && !p4Changelist.isBlank() && isEmpty(request.getVcCommitSha())) {
-                            request.setVcCommitSha(p4Changelist);
-                        }
-                        
-                        // Use depot path as repo URL
-                        if (p4DepotPath != null && !p4DepotPath.isBlank() && isEmpty(request.getVcRepoUrl())) {
-                            // Construct Perforce URL from port and depot path
-                            String p4Url = p4DepotPath;
-                            if (p4Port != null && !p4Port.isBlank()) {
-                                // Format: perforce://server:port/depot/path
-                                p4Url = p4Port + "/" + p4DepotPath;
-                            }
-                            request.setVcRepoUrl(p4Url);
-                            
-                            // Extract repo name from depot path
                             if (isEmpty(request.getVcRepoName())) {
-                                String repoName = extractPerforceRepoName(p4DepotPath);
+                                String repoName = extractRepoNameFromUrl(repoUrl);
                                 if (repoName != null) {
                                     request.setVcRepoName(repoName);
                                 }
                             }
                         }
-                        
-                        // Use depot path or stream as branch (Perforce uses streams or depot paths)
-                        if (isEmpty(request.getVcBranch())) {
-                            // Try P4_STREAM if available
-                            String p4Stream = (String) getMethod.invoke(env, "P4_STREAM");
-                            if (p4Stream != null && !p4Stream.isBlank()) {
-                                request.setVcBranch(p4Stream);
-                            } else if (p4DepotPath != null && !p4DepotPath.isBlank()) {
-                                // Use depot path as branch-like identifier
-                                request.setVcBranch(p4DepotPath);
-                            }
-                        }
-                        
-                        // Generate changelist URL if we have the necessary info
-                        if (isEmpty(request.getVcCommitUrl()) && p4Changelist != null && p4Port != null) {
-                            String changelistUrl = generatePerforceChangelistUrl(p4Port, p4Changelist);
-                            if (changelistUrl != null) {
-                                request.setVcCommitUrl(changelistUrl);
+                    }
+                } catch (Exception e) {
+                    // Ignore - extraction failed
+                }
+            }
+
+            // Get branch from BuildData
+            if (isEmpty(request.getVcBranch())) {
+                // Try getBuildsByBranchName first (more reliable for pipelines)
+                try {
+                    java.lang.reflect.Method getBuildsByBranchName = buildDataClass.getMethod("getBuildsByBranchName");
+                    Object buildsByBranch = getBuildsByBranchName.invoke(buildData);
+                    if (buildsByBranch != null && buildsByBranch instanceof java.util.Map) {
+                        java.util.Map<?, ?> map = (java.util.Map<?, ?>) buildsByBranch;
+                        if (!map.isEmpty()) {
+                            Object firstKey = map.keySet().iterator().next();
+                            String branchName = firstKey != null ? firstKey.toString() : null;
+                            if (branchName != null && !branchName.isBlank()) {
+                                // Clean up branch name
+                                branchName = branchName
+                                    .replaceAll("^refs/remotes/origin/", "")
+                                    .replaceAll("^refs/heads/", "")
+                                    .replaceAll("^origin/", "")
+                                    .replaceAll("^remotes/origin/", "")
+                                    .replaceAll("^\\*/", "")
+                                    .replaceAll("^\\*", "");
+                                request.setVcBranch(branchName);
                             }
                         }
                     }
                 } catch (Exception e) {
-                    // Ignore
+                    // Try getLastBuiltRevision as fallback
+                    try {
+                        java.lang.reflect.Method getLastBuiltRevision = buildDataClass.getMethod("getLastBuiltRevision");
+                        Object revision = getLastBuiltRevision.invoke(buildData);
+                        if (revision != null) {
+                            try {
+                                java.lang.reflect.Method getBranch = revision.getClass().getMethod("getBranch");
+                                Object branch = getBranch.invoke(revision);
+                                if (branch != null) {
+                                    try {
+                                        java.lang.reflect.Method getName = branch.getClass().getMethod("getName");
+                                        Object nameObj = getName.invoke(branch);
+                                        String branchName = nameObj != null ? nameObj.toString() : null;
+                                        if (branchName != null && !branchName.isBlank()) {
+                                            // Clean up branch name
+                                            branchName = branchName
+                                                .replaceAll("^refs/remotes/origin/", "")
+                                                .replaceAll("^refs/heads/", "")
+                                                .replaceAll("^origin/", "")
+                                                .replaceAll("^remotes/origin/", "")
+                                                .replaceAll("^\\*/", "")
+                                                .replaceAll("^\\*", "");
+                                            request.setVcBranch(branchName);
+                                        }
+                                    } catch (Exception e2) {
+                                        // Ignore
+                                    }
+                                }
+                            } catch (Exception e2) {
+                                // Ignore
+                            }
+                        }
+                    } catch (Exception e2) {
+                        // Ignore
+                    }
                 }
             }
+
+            // Get commit SHA from BuildData
+            if (isEmpty(request.getVcCommitSha())) {
+                String commitSha = getCommitSha(build);
+                if (commitSha != null && !commitSha.isBlank()) {
+                    request.setVcCommitSha(commitSha);
+                }
+            }
+
+            // Generate commit URL if we have repo URL and commit SHA
+            if (isEmpty(request.getVcCommitUrl())) {
+                String finalCommitSha = request.getVcCommitSha();
+                String finalRepoUrl = request.getVcRepoUrl();
+                if (finalCommitSha != null && finalRepoUrl != null) {
+                    String commitUrl = generateCommitUrl(finalRepoUrl, finalCommitSha);
+                    if (commitUrl != null) {
+                        request.setVcCommitUrl(commitUrl);
+                    }
+                }
+            }
+
+            // Set host type if not set
+            if (isEmpty(request.getVcHostType())) {
+                request.setVcHostType("git");
+            }
         } catch (Exception e) {
-            // Ignore
+            // Ignore - Git plugin might not be available
         }
     }
+
 
     /**
      * Detects the SCM host type (git, svn, hg, etc.) from the SCM object.
@@ -287,9 +328,11 @@ public class VersionControlDetector {
      * Gets the repository URL from the build/SCM using reflection.
      */
     private static String getRepositoryUrl(Run<?, ?> build, SCM scm) {
+        String scmClass = scm.getClass().getName();
+        
         // Try to get from GitSCM using reflection
         try {
-            if (scm.getClass().getName().contains("GitSCM")) {
+            if (scmClass.contains("GitSCM")) {
                 // Try getUserRemoteConfigs() method
                 try {
                     java.lang.reflect.Method getUserRemoteConfigs = scm.getClass().getMethod("getUserRemoteConfigs");
@@ -308,6 +351,41 @@ public class VersionControlDetector {
                             } catch (Exception e) {
                                 // Ignore
                             }
+                        }
+                    }
+                } catch (Exception e) {
+                    // Ignore
+                }
+            } else if (scmClass.contains("Perforce")) {
+                // Try to get Perforce depot path
+                try {
+                    // Try getDepotPath() or similar methods
+                    try {
+                        java.lang.reflect.Method getDepotPath = scm.getClass().getMethod("getDepotPath");
+                        String depotPath = (String) getDepotPath.invoke(scm);
+                        if (depotPath != null && !depotPath.isBlank()) {
+                            // Try to get port to construct full URL
+                            try {
+                                java.lang.reflect.Method getP4Port = scm.getClass().getMethod("getP4Port");
+                                String p4Port = (String) getP4Port.invoke(scm);
+                                if (p4Port != null && !p4Port.isBlank()) {
+                                    return p4Port + "/" + depotPath;
+                                }
+                            } catch (Exception e) {
+                                // Just return depot path
+                            }
+                            return depotPath;
+                        }
+                    } catch (Exception e) {
+                        // Try alternative method names
+                        try {
+                            java.lang.reflect.Method getDepot = scm.getClass().getMethod("getDepot");
+                            String depot = (String) getDepot.invoke(scm);
+                            if (depot != null && !depot.isBlank()) {
+                                return depot;
+                            }
+                        } catch (Exception e2) {
+                            // Ignore
                         }
                     }
                 } catch (Exception e) {
@@ -757,38 +835,6 @@ public class VersionControlDetector {
         return null;
     }
 
-    /**
-     * Tries to get full commit SHA from short commit using BuildData.
-     */
-    private static String getFullCommitFromShort(Run<?, ?> build, String shortCommit) {
-        try {
-            Class<?> buildDataClass = Class.forName("hudson.plugins.git.util.BuildData");
-            java.lang.reflect.Method getActionMethod = build.getClass().getMethod("getAction", Class.class);
-            Object buildData = getActionMethod.invoke(build, buildDataClass);
-            if (buildData != null) {
-                try {
-                    java.lang.reflect.Method getLastBuiltRevision = buildDataClass.getMethod("getLastBuiltRevision");
-                    Object revision = getLastBuiltRevision.invoke(buildData);
-                    if (revision != null) {
-                        try {
-                            java.lang.reflect.Method getSha1String = revision.getClass().getMethod("getSha1String");
-                            String sha = (String) getSha1String.invoke(revision);
-                            if (sha != null && sha.startsWith(shortCommit)) {
-                                return sha;
-                            }
-                        } catch (Exception e) {
-                            // Ignore
-                        }
-                    }
-                } catch (Exception e) {
-                    // Ignore
-                }
-            }
-        } catch (Exception e) {
-            // Ignore
-        }
-        return null;
-    }
 
     /**
      * Extracts repository name from Perforce depot path.
@@ -903,3 +949,5 @@ public class VersionControlDetector {
         return null;
     }
 }
+
+

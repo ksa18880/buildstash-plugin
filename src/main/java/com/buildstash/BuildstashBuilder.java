@@ -96,6 +96,9 @@ public class BuildstashBuilder extends Recorder implements SimpleBuildStep {
                     expandedVersionComponentMeta, expandedCustomBuildNumber, expandedLabels, expandedArchitectures,
                     expandedPlatform, expandedStream, expandedNotes, expandedVcHostType, expandedVcHost,
                     expandedVcRepoName, expandedVcRepoUrl, expandedVcBranch, expandedVcCommitSha, expandedVcCommitUrl);
+            
+            // Auto-detect SCM info (from project SCM config for freestyle, or BuildData for pipelines)
+            VersionControlDetector.populateVersionControlInfo(build, request);
 
             // Execute upload
             BuildstashUploadResponse response = uploadService.upload(request);

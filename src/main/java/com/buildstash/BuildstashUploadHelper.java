@@ -4,7 +4,6 @@ import hudson.EnvVars;
 import hudson.FilePath;
 import hudson.model.Run;
 import hudson.model.TaskListener;
-import hudson.util.Secret;
 import jenkins.model.Jenkins;
 
 import java.io.IOException;
@@ -119,17 +118,32 @@ public class BuildstashUploadHelper {
         request.setCiBuildDuration(formatBuildDuration(getBuildDuration(build)));
         request.setSource("jenkins");
 
-        // Set version control information (manual values first, already expanded)
-        request.setVcHostType(vcHostType);
-        request.setVcHost(vcHost);
-        request.setVcRepoName(vcRepoName);
-        request.setVcRepoUrl(vcRepoUrl);
-        request.setVcBranch(vcBranch);
-        request.setVcCommitSha(vcCommitSha);
-        request.setVcCommitUrl(vcCommitUrl);
+        // Set version control information (only if provided, to allow auto-detection)
+        // Only set fields that have actual values - empty strings are treated as "not provided"
+        if (vcHostType != null && !vcHostType.isBlank()) {
+            request.setVcHostType(vcHostType);
+        }
+        if (vcHost != null && !vcHost.isBlank()) {
+            request.setVcHost(vcHost);
+        }
+        if (vcRepoName != null && !vcRepoName.isBlank()) {
+            request.setVcRepoName(vcRepoName);
+        }
+        if (vcRepoUrl != null && !vcRepoUrl.isBlank()) {
+            request.setVcRepoUrl(vcRepoUrl);
+        }
+        if (vcBranch != null && !vcBranch.isBlank()) {
+            request.setVcBranch(vcBranch);
+        }
+        if (vcCommitSha != null && !vcCommitSha.isBlank()) {
+            request.setVcCommitSha(vcCommitSha);
+        }
+        if (vcCommitUrl != null && !vcCommitUrl.isBlank()) {
+            request.setVcCommitUrl(vcCommitUrl);
+        }
 
-        // Auto-detect and populate any missing VC fields from Jenkins
-        VersionControlDetector.populateVersionControlInfo(build, request);
+        // Note: SCM auto-detection is done separately in BuildstashBuilder and BuildstashStepExecution
+        // with proper TaskListener and EnvVars access for environment variables
 
         // Set workspace for file operations
         request.setWorkspace(workspace);
