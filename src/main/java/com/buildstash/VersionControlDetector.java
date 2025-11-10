@@ -588,6 +588,10 @@ public class VersionControlDetector {
         if (lowerUrl.contains("svn.riouxsvn.com") || lowerUrl.contains("riouxsvn")) {
             return "riouxsvn";
         }
+        // Assembla
+        if (lowerUrl.contains("assembla.com")) {
+            return "assembla";
+        }
 
         return null;
     }
