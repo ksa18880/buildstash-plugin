@@ -21,6 +21,7 @@
         <jenkins.pluginName>Buildstash</jenkins.pluginName>
         <jenkins.pluginDescription>Allows uploading build artifacts to Buildstash, for management and organization of binaries, sharing with your team and collaborators, and deployment. Uploaded binaries are output to your Jenkins workflow for use in future steps.</jenkins.pluginDescription>
         <hpi.strictBundledArtifacts>true</hpi.strictBundledArtifacts>
+        <ban-junit4-imports.skip>false</ban-junit4-imports.skip>
     </properties>
 
     <licenses>
